@@ -1,69 +1,62 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from tensorflow.keras.models import load_model
 import joblib
-import os
 
-# Load the pre-trained model and hyperparameters
-@st.cache_resource
-def load_resources():
-    model = load_model('best_model.h5')
-    hyperparameters = joblib.load('best_hyperparameters.pkl')
-    return model, hyperparameters
+# Load model and hyperparameters
+model = load_model('best_model.h5')
+encoder = joblib.load('encoder.pkl')  # Assume you have a pre-trained encoder saved in joblib
 
-model, hyperparameters = load_resources()
-
+# Preprocessing function
 def preprocess_data(data):
-    
+    """
+    Encodes the original text data into the format required by the model.
+    Assumes `encoder` is a pre-fitted object with the necessary transformations.
+    """
+    # Example: Assume `encoder` transforms categorical features
     encoded_data = encoder.transform(data)
     return encoded_data
-    
+
+# Prediction function
 def make_predictions(encoded_data):
     predictions = model.predict(encoded_data)
     binary_predictions = (predictions >= 0.5).astype(int)
     return ["yes" if pred == 1 else "no" for pred in binary_predictions]
 
-# Streamlit App
-st.title("Bank Subscription Prediction App")
-st.write("Upload a CSV file to predict customer outcomes.")
+# Streamlit app
+st.title("Customer Prediction App")
 
-# File uploader
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+# File upload
+uploaded_file = st.file_uploader("Upload your CSV file with original data", type="csv")
 
 if uploaded_file is not None:
+    # Read file
+    original_data = pd.read_csv(uploaded_file)
+    st.write("Original Data:")
+    st.write(original_data)
+    
+    # Preprocess and encode
     try:
-        # Read uploaded file
-        customer_data = pd.read_csv(uploaded_file)
+        encoded_data = preprocess_data(original_data)
+        st.write("Encoded Data:")
+        st.write(pd.DataFrame(encoded_data))
         
-        # Ensure data is formatted as expected (optional preprocessing here)
-        st.write("Preview of uploaded data:")
-        st.dataframe(customer_data.head())
-        
-        # Predict outcomes
-        st.write("Running predictions...")
-        predictions = predict_customer_data(model, customer_data)
-        
-        # Display predictions
-        prediction_df = pd.DataFrame(predictions, columns=["Prediction"])
-        st.write("Prediction Results:")
-        st.dataframe(prediction_df)
+        # Run predictions
+        predictions = make_predictions(encoded_data)
+        st.write("Predictions:")
+        st.write(predictions)
         
         # Save predictions to CSV
-        output_file = "predictions.csv"
-        prediction_df.to_csv(output_file, index=False)
+        result_df = original_data.copy()
+        result_df["Prediction"] = predictions
+        result_csv = result_df.to_csv(index=False)
         
         # Provide download link
         st.download_button(
-            label="Download Predictions",
-            data=open(output_file, "rb").read(),
+            label="Download Predictions as CSV",
+            data=result_csv,
             file_name="predictions.csv",
             mime="text/csv",
         )
-        st.success("Predictions completed and ready for download!")
-        
     except Exception as e:
-        st.error(f"An error occurred: {e}")
-
-# Footer
-st.write("This app uses a pre-trained model to predict outcomes for customer data.")
+        st.error(f"Error processing the file: {e}")
