@@ -14,15 +14,18 @@ def load_resources():
 
 model, hyperparameters = load_resources()
 
-# Helper function for prediction
-def predict_customer_data(model, customer_data):
-    predictions = model.predict(customer_data)
+def preprocess_data(data):
+    
+    encoded_data = encoder.transform(data)
+    return encoded_data
+    
+def make_predictions(encoded_data):
+    predictions = model.predict(encoded_data)
     binary_predictions = (predictions >= 0.5).astype(int)
-    label_predictions = ["yes" if pred == 1 else "no" for pred in binary_predictions]
-    return label_predictions
+    return ["yes" if pred == 1 else "no" for pred in binary_predictions]
 
 # Streamlit App
-st.title("Customer Data Prediction App")
+st.title("Bank Subscription Prediction App")
 st.write("Upload a CSV file to predict customer outcomes.")
 
 # File uploader
