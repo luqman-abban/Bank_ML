@@ -1,4 +1,4 @@
 streamlit
 pandas
 joblib
-tensorflow==2.8.0
+tensorflow==2.16.0
