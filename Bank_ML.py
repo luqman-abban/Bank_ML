@@ -5,7 +5,7 @@ from tensorflow.keras.models import load_model
 import joblib
 import os
 
-# Load the pre-trained model and hyperparameters
+
 @st.cache_resource
 def load_resources():
     model = load_model('best_model.h5')
