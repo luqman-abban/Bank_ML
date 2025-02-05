@@ -1,66 +1,59 @@
-import streamlit as st
+import gradio as gr
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 import joblib
-import os
 
+# Load the saved model and preprocessors
+model = load_model('best_model.h5')
+best_hyperparameters = joblib.load('best_hyperparameters.pkl')
+scaler = StandardScaler()
+encoder = LabelEncoder()
 
-@st.cache_resource
-def load_resources():
-    model = load_model('best_model.h5')
-    hyperparameters = joblib.load('best_hyperparameters.pkl')
-    return model, hyperparameters
+# Load the original data to get feature names and order
+original_data = pd.read_csv('bank-full.csv', delimiter=';', quotechar='"')
+categorical_cols = original_data.select_dtypes(include=['object']).columns
 
-model, hyperparameters = load_resources()
+def predict_subscription(age, job, marital, education, default, balance, housing, loan, contact, day, month, duration, campaign, pdays, previous, poutcome):
+    input_data = {
+        'age': age, 'job': job, 'marital': marital, 'education': education, 'default': default,
+        'balance': balance, 'housing': housing, 'loan': loan, 'contact': contact,
+        'day': day, 'month': month, 'duration': duration, 'campaign': campaign,
+        'pdays': pdays, 'previous': previous, 'poutcome': poutcome
+    }
+    user_df = pd.DataFrame([input_data])
 
-# Helper function for prediction
-def predict_customer_data(model, customer_data):
-    predictions = model.predict(customer_data)
-    binary_predictions = (predictions >= 0.5).astype(int)
-    label_predictions = ["yes" if pred == 1 else "no" for pred in binary_predictions]
-    return label_predictions
+    categorical_cols_to_encode = [col for col in categorical_cols if col in user_df.columns]
+    for col in categorical_cols_to_encode:
+        user_df[col] = encoder.fit_transform(user_df[col])
 
-# Streamlit App
-st.title("Customer Data Prediction App")
-st.write("Upload a CSV file to predict customer outcomes.")
+    numerical_cols = user_df.select_dtypes(include=['int64', 'float64']).columns
+    user_df[numerical_cols] = scaler.fit_transform(user_df[numerical_cols])
 
-# File uploader
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    prediction = model.predict(user_df)
+    binary_prediction = (prediction >= 0.5).astype(int)
+    label_prediction = "yes" if binary_prediction[0][0] == 1 else "no"
+    return label_prediction
 
-if uploaded_file is not None:
-    try:
-        # Read uploaded file
-        customer_data = pd.read_csv(uploaded_file)
-        
-        # Ensure data is formatted as expected (optional preprocessing here)
-        st.write("Preview of uploaded data:")
-        st.dataframe(customer_data.head())
-        
-        # Predict outcomes
-        st.write("Running predictions...")
-        predictions = predict_customer_data(model, customer_data)
-        
-        # Display predictions
-        prediction_df = pd.DataFrame(predictions, columns=["Prediction"])
-        st.write("Prediction Results:")
-        st.dataframe(prediction_df)
-        
-        # Save predictions to CSV
-        output_file = "predictions.csv"
-        prediction_df.to_csv(output_file, index=False)
-        
-        # Provide download link
-        st.download_button(
-            label="Download Predictions",
-            data=open(output_file, "rb").read(),
-            file_name="predictions.csv",
-            mime="text/csv",
-        )
-        st.success("Predictions completed and ready for download!")
-        
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+# Define input components for Gradio
+inputs = []
+for col in original_data.columns[:-1]:
+    if col in categorical_cols:
+        unique_values = list(original_data[col].unique())
+        # Change here: Use gr.<Component> directly
+        inputs.append(gr.Dropdown(choices=unique_values, label=col)) 
+    else:
+        # Change here: Use gr.<Component> directly
+        inputs.append(gr.Number(label=col))  
 
-# Footer
-st.write("This app predicts if a customer will subscribe to bank term deposit or not.")
+# Create the Gradio interface
+iface = gr.Interface(
+    fn=predict_subscription,
+    inputs=inputs,
+    outputs="text",
+    title="Bank Marketing Outcome Prediction",
+    description="Predict whether a customer will subscribe to a term deposit."
+)
+
+iface.launch()
