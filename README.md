@@ -1,5 +1,8 @@
 # Bank_ML
 
+Bank_ML is a machine learning project designed to predict whether a customer will subscribe to a term deposit with the bank. Using a trained model and a preprocessing pipeline, the app analyzes customer data to provide real-time predictions. It is deployed as an interactive Gradio app on Hugging Face Spaces, allowing users to input data and receive instant predictions.
+
+
 ## Live Demo
 
 Try the live deployment of this project on Hugging Face Spaces:
